@@ -1,0 +1,665 @@
+:scrollbar:
+:data-uri:
+:toc2:
+:imagesdir: images
+
+= Securing Linux Servers and auditing security policies with OpenSCAP - LTO Show & Tell Series
+
+== Description
+This Show&Tell is aimed to share some of the most important concepts and features of OpenSCAP as a tool for auditing security policies.
+
+Audience: IT Managers, Architects, IT security specialists and technical staff who operates Linux
+
+:numbered:
+
+== Introduction
+
+This Show & Tell is intended to give to system administrators a brief introduction to openSCAP. We will describe the tools, how to install it on a Linux environment as RHEL, how to interact with the tool from scanning to remediation. Also we will discuss the integration with the RHEL predictive tool called Insights.
+
+Let's start!
+
+== What is OpenSCAP?
+
+OpenSCAP is a group of security tools, standards and policies for performing security compliance checks against the systems by following SCAP, which is the U.S. standard maintained by NIST. The SCAP scanner, which is an engine, reads a security policy and checks whether the system is compliant with it. It goes throughout all of the rules defined in the policy, one by one, and reports whether each rule is fulfilled. If all checks pass, the system is compliant with the security policy. If not, the system isn't compliant and needs a remediation, that can be executed through scripts or ansible playbooks or letting the tool to remediate each non compliant rule.
+
+== Using OpenSCAP
+
+=== The OpenSCAP oscap command line utility
+
+This utility enables us to scan systems validating security compliance content and generating reports and guides based on the scans and evaluations made. This is the front end to the OpenSCAP library and groups.
+
+[source, bash]
+------------------------
+# yum install -y openscap-scanner
+
+Updating Subscription Management repositories.
+Last metadata expiration check: 0:01:45 ago on Tue 25 Feb 2020 03:18:32 PM EST.
+Dependencies resolved.
+===============================================================================================================================================
+ Package                          Architecture           Version                        Repository                                        Size
+===============================================================================================================================================
+Installing:
+ openscap-scanner                 x86_64                 1.3.1-1.el8                    rhel-8-for-x86_64-appstream-rpms                  66 k
+Installing dependencies:
+ openscap                         x86_64                 1.3.1-1.el8                    rhel-8-for-x86_64-appstream-rpms                 3.3 M
+
+Transaction Summary
+========================================================================================================================================
+Install  2 Packages
+
+Total download size: 3.4 M
+Installed size: 58 M
+Downloading Packages:
+(1/2): openscap-scanner-1.3.1-1.el8.x86_64.rpm                                                                 100 kB/s |  66 kB     00:00
+(2/2): openscap-1.3.1-1.el8.x86_64.rpm                                                                         4.4 MB/s | 3.3 MB     00:00
+----------------------------------------------------------------------------------------------------------------------------------------
+Total                                                                                                          4.5 MB/s | 3.4 MB     00:00
+Running transaction check
+Transaction check succeeded.
+Running transaction test
+Transaction test succeeded.
+Running transaction
+  Preparing        :                                                                                                                       1/1
+  Installing       : openscap-1.3.1-1.el8.x86_64                                                                                           1/2
+  Running scriptlet: openscap-1.3.1-1.el8.x86_64                                                                                           1/2
+  Installing       : openscap-scanner-1.3.1-1.el8.x86_64                                                                                   2/2
+  Running scriptlet: openscap-scanner-1.3.1-1.el8.x86_64                                                                                   2/2
+  Verifying        : openscap-scanner-1.3.1-1.el8.x86_64                                                                                   1/2
+  Verifying        : openscap-1.3.1-1.el8.x86_64                                                                                           2/2
+Installed products updated.
+
+Installed:
+  openscap-scanner-1.3.1-1.el8.x86_64                                        openscap-1.3.1-1.el8.x86_64
+
+Complete!
+------------------------
+
+=== The security guide for SCAP
+
+Before we can start using oscap we need to install or import security content. For this exercise we can install the SCAP Security Guide (SSG) package that contains the currently most evolved and elaborated set of security policies for Linux systems.
+
+[source, bash]
+---------------------------
+# yum install -y scap-security-guide
+
+Updating Subscription Management repositories.
+Last metadata expiration check: 0:11:12 ago on Tue 25 Feb 2020 03:29:45 PM EST.
+Dependencies resolved.
+========================================================================================================================================
+ Package                            Architecture          Version                        Repository                                       Size
+========================================================================================================================================Installing:
+ scap-security-guide                noarch                0.1.46-1.el8                   rhel-8-for-x86_64-appstream-rpms                6.6 M
+
+Transaction Summary
+========================================================================================================================================
+Install  1 Package
+
+Total download size: 6.6 M
+Installed size: 173 M
+Is this ok [y/N]: y
+Downloading Packages:
+scap-security-guide-0.1.46-1.el8.noarch.rpm                                                                    4.7 MB/s | 6.6 MB     00:01
+----------------------------------------------------------------------------------------------------------------------------------------
+Total                                                                                                          4.7 MB/s | 6.6 MB     00:01
+Running transaction check
+Transaction check succeeded.
+Running transaction test
+Transaction test succeeded.
+Running transaction
+  Preparing        :                                                                                                                       1/1
+  Installing       : scap-security-guide-0.1.46-1.el8.noarch                                                                               1/1
+  Running scriptlet: scap-security-guide-0.1.46-1.el8.noarch                                                                               1/1
+  Verifying        : scap-security-guide-0.1.46-1.el8.noarch                                                                               1/1
+Installed products updated.
+
+Installed:
+  scap-security-guide-0.1.46-1.el8.noarch
+
+Complete!
+---------------------------
+
+After the installation SSG security content will be available in the following directory.
+
+[source, bash]
+--------------------------
+# ls /usr/share/xml/scap/ssg/content/
+
+ssg-firefox-cpe-dictionary.xml  ssg-jre-ds-1.2.xml            ssg-rhel6-ocil.xml            ssg-rhel7-xccdf.xml
+ssg-firefox-cpe-oval.xml        ssg-jre-ds.xml                ssg-rhel6-oval.xml            ssg-rhel8-cpe-dictionary.xml
+ssg-firefox-ds-1.2.xml          ssg-jre-ocil.xml              ssg-rhel6-xccdf.xml           ssg-rhel8-cpe-oval.xml
+ssg-firefox-ds.xml              ssg-jre-oval.xml              ssg-rhel7-cpe-dictionary.xml  ssg-rhel8-ds-1.2.xml
+ssg-firefox-ocil.xml            ssg-jre-xccdf.xml             ssg-rhel7-cpe-oval.xml        ssg-rhel8-ds.xml
+ssg-firefox-oval.xml            ssg-rhel6-cpe-dictionary.xml  ssg-rhel7-ds-1.2.xml          ssg-rhel8-ocil.xml
+ssg-firefox-xccdf.xml           ssg-rhel6-cpe-oval.xml        ssg-rhel7-ds.xml              ssg-rhel8-oval.xml
+ssg-jre-cpe-dictionary.xml      ssg-rhel6-ds-1.2.xml          ssg-rhel7-ocil.xml            ssg-rhel8-xccdf.xml
+ssg-jre-cpe-oval.xml            ssg-rhel6-ds.xml              ssg-rhel7-oval.xml
+--------------------------
+
+If we want to get the most recent security guides, we can go download them from link:https://www.open-scap.org/security-policies/scap-security-guide/[scap security guide].
+
+[source, bash]
+--------------------------
+# wget https://github.com/ComplianceAsCode/content/releases/download/v0.1.48/scap-security-guide-0.1.48.zip
+
+Resolving github.com (github.com)... 192.30.253.112
+Connecting to github.com (github.com)|192.30.253.112|:443... connected.
+HTTP request sent, awaiting response... 302 Found
+Location: https://github-production-release-asset-2e65be.s3.amazonaws.com/19279458/3cc08380-37d6-11ea-8d32-ccfae2c7184d?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20200227%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20200227T122113Z&X-Amz-Expires=300&X-Amz-Signature=8759e4c609f3b36b5eb315281cf053c7c4a1b4d088e00718a26386bee7ca2a2a&X-Amz-SignedHeaders=host&actor_id=0&response-content-disposition=attachment%3B%20filename%3Dscap-security-guide-0.1.48.zip&response-content-type=application%2Foctet-stream [following]
+--2020-02-27 07:21:13--  https://github-production-release-asset-2e65be.s3.amazonaws.com/19279458/3cc08380-37d6-11ea-8d32-ccfae2c7184d?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20200227%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20200227T122113Z&X-Amz-Expires=300&X-Amz-Signature=8759e4c609f3b36b5eb315281cf053c7c4a1b4d088e00718a26386bee7ca2a2a&X-Amz-SignedHeaders=host&actor_id=0&response-content-disposition=attachment%3B%20filename%3Dscap-security-guide-0.1.48.zip&response-content-type=application%2Foctet-stream
+Resolving github-production-release-asset-2e65be.s3.amazonaws.com (github-production-release-asset-2e65be.s3.amazonaws.com)... 52.216.136.180
+Connecting to github-production-release-asset-2e65be.s3.amazonaws.com (github-production-release-asset-2e65be.s3.amazonaws.com)|52.216.136.180|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 62094730 (59M) [application/octet-stream]
+Saving to: ‘scap-security-guide-0.1.48.zip’
+
+scap-security-guide-0.1.48.zip      100%[==================================================================>]  59.22M  8.17MB/s    in 8.3s
+
+2020-02-27 07:21:21 (7.16 MB/s) - ‘scap-security-guide-0.1.48.zip’ saved [62094730/62094730]
+
+# unzip scap-security-guide-0.1.48.zip
+
+output omitted.
+
+# cd scap-security-guide-0.1.48
+
+# cp ssg-rhel8-ds-1.2.xml /usr/share/xml/scap/ssg/content/ssg-rhel8-ds-1.2-20200115.xml
+# cp ssg-rhel8-ds.xml /usr/share/xml/scap/ssg/content/ssg-rhel8-ds-20200115.xml
+--------------------------
+
+After copying the security guides updated in /usr/share/xml/scap/ssg/content/ directory, we can get information from these guides to see if some profiles are changed or added. This is done using the 'info' directive of oscap described in the next section.
+
+=== Getting information for using oscap
+
+The oscap utility can process files conforming to many of the formats used by the utility. In order to process the given file with SCAP content, we need to understand how to use oscap with the given file type. We can open and read the file, or use the info module of oscap which parses the file and extracts relevant information in human-readable format.
+
+For example, let's see the content of ssg-rhel8-ds.xml.
+
+[source, bash]
+-------------------------
+# oscap info /usr/share/xml/scap/ssg/content/ssg-rhel8-ds.xml
+
+Document type: Source Data Stream
+Imported: 2019-09-02T06:09:10
+
+Stream: scap_org.open-scap_datastream_from_xccdf_ssg-rhel8-xccdf-1.2.xml
+Generated: (null)
+Version: 1.3
+Checklists:
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-xccdf-1.2.xml
+WARNING: Datastream component 'scap_org.open-scap_cref_security-data-oval-com.redhat.rhsa-RHEL8.xml' points out to the remote 'https://www.redhat.com/security/data/oval/com.redhat.rhsa-RHEL8.xml'. Use '--fetch-remote-resources' option to download it.
+WARNING: Skipping 'https://www.redhat.com/security/data/oval/com.redhat.rhsa-RHEL8.xml' file which is referenced from datastream
+                Status: draft
+                Generated: 2019-09-02
+                Resolved: true
+                Profiles:
+                        Title: Protection Profile for General Purpose Operating Systems
+                                Id: xccdf_org.ssgproject.content_profile_ospp
+                        Title: PCI-DSS v3.2.1 Control Baseline for Red Hat Enterprise Linux 8
+                                Id: xccdf_org.ssgproject.content_profile_pci-dss
+                Referenced check files:
+                        ssg-rhel8-oval.xml
+                                system: http://oval.mitre.org/XMLSchema/oval-definitions-5
+                        ssg-rhel8-ocil.xml
+                                system: http://scap.nist.gov/schema/ocil/2
+                        security-data-oval-com.redhat.rhsa-RHEL8.xml
+                                system: http://oval.mitre.org/XMLSchema/oval-definitions-5
+Checks:
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-oval.xml
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-ocil.xml
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-cpe-oval.xml
+        Ref-Id: scap_org.open-scap_cref_security-data-oval-com.redhat.rhsa-RHEL8.xml
+Dictionaries:
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-cpe-dictionary.xml
+-------------------------
+
+We can filter for Title to list only the name of profiles.
+
+[source, bash]
+------------------------
+# oscap info /usr/share/xml/scap/ssg/content/ssg-rhel8-ds.xml | egrep '(Title|Id)'
+
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-xccdf-1.2.xml
+                        Title: Protection Profile for General Purpose Operating Systems
+                                Id: xccdf_org.ssgproject.content_profile_ospp
+                        Title: PCI-DSS v3.2.1 Control Baseline for Red Hat Enterprise Linux 8
+                                Id: xccdf_org.ssgproject.content_profile_pci-dss
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-oval.xml
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-ocil.xml
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-cpe-oval.xml
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-cpe-dictionary.xml
+------------------------
+
+Now let's get the info to the new security guide downloaded in the previous section.
+
+[source, bash]
+------------------------
+# oscap info /usr/share/xml/scap/ssg/content/ssg-rhel8-ds.xml | egrep '(Title|Id)'
+
+WARNING: Datastream component 'scap_org.open-scap_cref_security-data-oval-com.redhat.rhsa-RHEL8.xml' points out to the remote 'https://www.redhat.com/security/data/oval/com.redhat.rhsa-RHEL8.xml'. Use '--fetch-remote-resources' option to download it.
+WARNING: Skipping 'https://www.redhat.com/security/data/oval/com.redhat.rhsa-RHEL8.xml' file which is referenced from datastream
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-xccdf-1.2.xml
+                        Title: Criminal Justice Information Services (CJIS) Security Policy
+                                Id: xccdf_org.ssgproject.content_profile_cjis
+                        Title: Unclassified Information in Non-federal Information Systems and Organizations (NIST 800-171)
+                                Id: xccdf_org.ssgproject.content_profile_cui
+                        Title: Health Insurance Portability and Accountability Act (HIPAA)
+                                Id: xccdf_org.ssgproject.content_profile_hipaa
+                        Title: PCI-DSS v3.2.1 Control Baseline for Red Hat Enterprise Linux 8
+                                Id: xccdf_org.ssgproject.content_profile_pci-dss
+                        Title: Red Hat Corporate Profile for Certified Cloud Providers (RH CCP)
+                                Id: xccdf_org.ssgproject.content_profile_rht-ccp
+                        Title: Standard System Security Profile for Red Hat Enterprise Linux 8
+                                Id: xccdf_org.ssgproject.content_profile_standard
+                        Title: [DRAFT] DISA STIG for Red Hat Enterprise Linux 8
+                                Id: xccdf_org.ssgproject.content_profile_stig
+                        Title: [DRAFT] DISA STIG for Red Hat Enterprise Linux Virtualization Host (RHELH)
+                                Id: xccdf_org.ssgproject.content_profile_rhelh-stig
+                        Title: VPP - Protection Profile for Virtualization v. 1.0 for Red Hat Enterprise Linux Hypervisor (RHELH)
+                                Id: xccdf_org.ssgproject.content_profile_rhelh-vpp
+                        Title: Protection Profile for General Purpose Operating Systems
+                                Id: xccdf_org.ssgproject.content_profile_ospp
+                        Title: Australian Cyber Security Centre (ACSC) Essential Eight
+                                Id: xccdf_org.ssgproject.content_profile_e8
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-oval.xml
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-ocil.xml
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-cpe-oval.xml
+        Ref-Id: scap_org.open-scap_cref_security-data-oval-com.redhat.rhsa-RHEL8.xml
+        Ref-Id: scap_org.open-scap_cref_ssg-rhel8-cpe-dictionary.xml
+------------------------
+
+Now we can see a lot more guides for our RHEL 8 instance.
+
+=== Scanning a host
+
+The oscap utility can scan systems against the SCAP content represented by both, an XCCDF (The eXtensible Configuration Checklist Description Format) benchmark, and OVAL (Open Vulnerability and Assessment Language) definitions. The security policy can be in the form of a single OVAL or XCCDF file or multiple separate XML files where each file represents a different component (XCCDF, OVAL, CPE, CVE, and others). The result of a scan can be printed to both standard output and an XML file. The result file can then be further processed by oscap in order to generate a report in a human-readable format. 
+
+For this exercise we are going to scan the system first, using a XCCDF, no remediations will be executed in this very first step. We need to understand how far we are to comply with the profile selected.
+
+Let's scan with a protection profile for general purpose OS. We also could check the system using the pci-dss profile. In both cases, the profile defines the baseline to be fulfilled. The oscap can help us to evaluate how far the system is from the profile selected.
+
+[source, bash]
+-------------------------
+# oscap xccdf eval --profile xccdf_org.ssgproject.content_profile_ospp \
+--results scan-xccdf-results.xml \
+--report  scan-xccdf-results.html \
+/usr/share/xml/scap/ssg/content/ssg-rhel8-ds.xml \
+| tee scan-xccdf-results.txt
+-------------------------
+
+* oscap xccdf eval will evaluate the system using the xccdf file format.
+* --profile select the general purpose server profile.
+* --report send a human readable report to scan-xccdf-results.html.
+* --results build a results file scan-xccdf-results.xml.
+* /usr/share/xml/scap/ssg/content/ssg-rhel8-ds.xml get the RHEL 8 data stream to execute the scanning process. 
+* The standard output is redirected to a file using the *tee* command.
+
+An excerpt of the output is shown using a simple *more* command.
+
+[source, bash]
+-------------------------
+# more scan-xccdf-results.txt
+
+Title   Enable the Hardware RNG Entropy Gatherer Service
+Rule    xccdf_org.ssgproject.content_rule_service_rngd_enabled
+Ident   CCE-82831-9
+Result  pass
+
+Title   Uninstall Automatic Bug Reporting Tool (abrt)
+Rule    xccdf_org.ssgproject.content_rule_package_abrt_removed
+Ident   CCE-80948-3
+Result  pass
+
+Title   Disable chrony daemon from acting as server
+Rule    xccdf_org.ssgproject.content_rule_chronyd_client_only
+Ident   CCE-82988-7
+Result  fail
+
+Title   Disable network management of chrony daemon
+Rule    xccdf_org.ssgproject.content_rule_chronyd_no_chronyc_network
+Ident   CCE-82840-0
+Result  fail
+
+Title   Install sssd-ipa Package
+Rule    xccdf_org.ssgproject.content_rule_package_sssd-ipa_installed
+Ident   CCE-82994-5
+Result  fail
+
+Title   Configure SSSD to run as user sssd
+Rule    xccdf_org.ssgproject.content_rule_sssd_run_as_sssd_user
+Ident   CCE-82072-0
+Result  fail
+
+Title   Disable SSH Root Login
+Rule    xccdf_org.ssgproject.content_rule_sshd_disable_root_login
+Ident   CCE-80901-2
+Result  fail
+...
+-------------------------
+
+From this output we can create a "report like" file in which the title and result are joined together.
+
+[source, bash]
+-------------------------
+# cat scan-xccdf-results.txt | egrep '(Title|Result)' |  awk '{if (NR%2) {printf("%s", $0)} else {printf " --> (%s)\n",$2} } '| cut -f2- > scan-xccdf-report.txt
+
+# more scan-xccdf-report.txt
+
+Enable the Hardware RNG Entropy Gatherer Service --> (pass)
+Uninstall Automatic Bug Reporting Tool (abrt) --> (pass)
+Disable chrony daemon from acting as server --> (fail)
+Disable network management of chrony daemon --> (fail)
+Install sssd-ipa Package --> (fail)
+Configure SSSD to run as user sssd --> (fail)
+Disable SSH Root Login --> (fail)
+Enable Use of Strict Mode Checking --> (pass)
+Enable SSH Warning Banner --> (fail)
+Disable Kerberos Authentication --> (pass)
+Force frequent session key renegotiation --> (fail)
+Disable GSSAPI Authentication --> (fail)
+Disable Host-Based Authentication --> (pass)
+Set SSH Client Alive Max Count --> (fail)
+Set SSH Idle Timeout Interval --> (fail)
+Disable SSH Access via Empty Passwords --> (pass)
+Uninstall Sendmail Package --> (pass)
+Install fapolicyd Package --> (fail)
+Enable the File Access Policy Service --> (fail)
+Enable fapolicyd to watch all system mountpoints --> (fail)
+Enable the USBGuard Service --> (fail)
+Install usbguard Package --> (fail)
+Authorize USB hubs in USBGuard daemon --> (fail)
+Log USBGuard daemon audit events using Linux Audit --> (fail)
+Authorize Human Interface Devices in USBGuard daemon --> (fail)
+Uninstall nfs-utils Package --> (pass)
+Configure auditd flush priority --> (pass)
+Configure auditd to use audispd's syslog plugin --> (fail)
+Configure audit according to OSPP requirements --> (fail)
+Ensure the audit Subsystem is Installed --> (pass)
+Install audispd-plugins Package --> (fail)
+Write Audit Logs to the Disk --> (pass)
+Enable Auditing for Processes Which Start Prior to the Audit Daemon --> (fail)
+Include Local Events in Audit Logs --> (pass)
+Set number of records to cause an explicit flush to audit logs --> (pass)
+Extend Audit Backlog Limit for the Audit Daemon --> (fail)
+Resolve information before writing to audit logs --> (pass)
+Enable auditd Service --> (pass)
+...
+-------------------------
+
+If we need to have a more understanding of a specific test, we can use the following.
+
+[source, bash]
+-------------------------
+# searchFor="Set SSH Idle Timeout Interval"; awk -v filter="$searchFor" 'BEGIN{RS="\n\n";FS="\n"}{if (match($0, filter)) print $0;}' scan-xccdf-results.txt
+
+Title   Set SSH Idle Timeout Interval
+Rule    xccdf_org.ssgproject.content_rule_sshd_set_idle_timeout
+Ident   CCE-80906-1
+Result  fail
+-------------------------
+
+With the identification we go to *http://static.open-scap.org/ssg-guides/ssg-rhel8-guide-rht-ccp.html* and have detailed information about the RULE and Remediation.
+
+http://static.open-scap.org/ssg-guides/ssg-rhel8-guide-rht-ccp.html
+
+image::Rule.png[]
+
+Also a formatted report is created thanks to using the --report directive. This report looks like this.
+
+image::complianceScoring.png[]
+
+=== Making remediations
+
+OpenSCAP allows automatic remediations that have been found in a non-compliant state. For system remediation, an XCCDF file with instructions is required. The scap security guide package contains certain remediation instructions.
+
+System remediation consists of the following steps:
+
+* OpenSCAP performs a regular XCCDF evaluation.
+* An assessment of the results is performed by evaluating the OVAL definitions. Each rule that has failed is marked as a candidate for remediation.
+* OpenSCAP searches for an appropriate fix element, resolves it, prepares the environment, and executes the fix script.
+* Any output of the fix script is captured by OpenSCAP and stored within the rule-result element. The return value of the fix script is stored as well.
+* Whenever OpenSCAP executes a fix script, it immediately evaluates the OVAL definition again (to verify that the fix script has been applied correctly). During this second run, if the OVAL evaluation returns success, the result of the rule is fixed, otherwise it is an error.
+* Detailed results of the remediation are stored in an output XCCDF file. It contains two TestResult elements. The first TestResult element represents the scan prior to the remediation. The second TestResult is derived from the first one and contains remediation results.
+
+There are three modes of operation of OpenSCAP with regard to remediation: online, offline, and review.
+
+* Online Remediation
+
+Online remediation executes fix elements at the time of scanning. Evaluation and remediation are performed as a part of a single command.
+
+[source, bash]
+-----------------------
+# oscap xccdf eval --remediate \
+--profile xccdf_org.ssgproject.content_profile_ospp \
+--results scan-xccdf-remediation.xml \
+--report  scan-xccdf-remediation.html \
+/usr/share/xml/scap/ssg/content/ssg-rhel8-ds.xml \
+| tee scan-xccdf-remediation.txt
+-----------------------
+
+With scan-xccdf-remediation.txt file we can get a petit report with each rule and the result of the remediation procedure.
+
+[source, bash]
+-----------------------
+# sed -e '1,/Starting Remediation/d' scan-xccdf-remediation.txt | egrep '(Title|Result)' |  awk '{if (NR%2) {printf("%s", $0)} else {printf " --> (%s)\n",$2} } '| cut -f2- > scan-xccdf-remediation-report.txt
+
+# more scan-xccdf-remediation-report.txt
+Disable chrony daemon from acting as server --> (fixed)
+Disable network management of chrony daemon --> (fixed)
+Install sssd-ipa Package --> (fixed)
+Configure SSSD to run as user sssd --> (fixed)
+Disable SSH Root Login --> (fixed)
+Enable SSH Warning Banner --> (fixed)
+Force frequent session key renegotiation --> (fixed)
+Disable GSSAPI Authentication --> (fixed)
+Set SSH Client Alive Max Count --> (fixed)
+Set SSH Idle Timeout Interval --> (fixed)
+Install fapolicyd Package --> (fixed)
+Enable the File Access Policy Service --> (fixed)
+Enable fapolicyd to watch all system mountpoints --> (fixed)
+Enable the USBGuard Service --> (error)
+Install usbguard Package --> (error)
+Authorize USB hubs in USBGuard daemon --> (fixed)
+Log USBGuard daemon audit events using Linux Audit --> (fixed)
+Authorize Human Interface Devices in USBGuard daemon --> (fixed)
+Configure auditd to use audispd's syslog plugin --> (fixed)
+Configure audit according to OSPP requirements --> (fixed)
+...
+-----------------------
+
+* Offline Remediation
+
+Offline remediation allows us to postpone fix execution. In the first step, the system is only evaluated, and the results are stored in a TestResult element in an XCCDF file.
+
+[source, bash]
+-----------------------
+# oscap xccdf eval \
+--profile xccdf_org.ssgproject.content_profile_ospp \
+--results scan-xccdf-remediation.xml \
+--report  scan-xccdf-remediation.html \
+/usr/share/xml/scap/ssg/content/ssg-rhel8-ds.xml \
+| tee scan-xccdf-remediation.txt
+-----------------------
+
+Then we can perform the remediations using scan-xccdf-remediation.xml file.
+
+[source, bash]
+-----------------------
+# oscap xccdf remediate --results scan-xccdf-remediation.html scan-xccdf-remediation.html
+-----------------------
+
+* Evaluation Remediation
+
+The review mode enables us to store remediation instructions to a file for further review. The remediation content is not executed during this operation.
+
+In this example we are generating a remediation-script.sh file.
+
+[source, bash]
+-----------------------
+# oscap xccdf generate fix --template urn:xccdf:fix:script:sh \
+--profile xccdf_org.ssgproject.content_profile_ospp \
+--output remediation-script.sh --fetch-remote-resources \
+/usr/share/xml/scap/ssg/content/ssg-rhel8-ds.xml
+-----------------------
+
+The remediation-script.sh file looks like the following.
+
+[source, bash]
+-----------------------
+# more remediation-script.sh
+###############################################################################
+#
+# Bash Remediation Script for Protection Profile for General Purpose Operating Systems
+#
+# Profile Description:
+# This profile reflects mandatory configuration controls identified in the
+# NIAP Configuration Annex to the Protection Profile for General Purpose
+# Operating Systems (Protection Profile Version 4.2.1).
+# This configuration profile is consistent with CNSSI-1253, which requires
+# U.S. National Security Systems to adhere to certain configuration
+# parameters. Accordingly, this configuration profile is suitable for
+# use in U.S. National Security Systems.
+#
+# Profile ID:  xccdf_org.ssgproject.content_profile_ospp
+# Benchmark ID:  xccdf_org.ssgproject.content_benchmark_RHEL-8
+# Benchmark Version:  0.1.46
+# XCCDF Version:  1.2
+#
+# This file was generated by OpenSCAP 1.3.1 using:
+# $ oscap xccdf generate fix --profile xccdf_org.ssgproject.content_profile_ospp --fix-type bash xccdf-file.xml
+#
+# This Bash Remediation Script is generated from an OpenSCAP profile without preliminary evaluation.
+# It attempts to fix every selected rule, even if the system is already compliant.
+#
+# How to apply this Bash Remediation Script:
+# $ sudo ./remediation-script.sh
+#
+###############################################################################
+
+###############################################################################
+# BEGIN fix (1 / 186) for 'xccdf_org.ssgproject.content_rule_service_rngd_enabled'
+###############################################################################
+(>&2 echo "Remediating rule 1/186: 'xccdf_org.ssgproject.content_rule_service_rngd_enabled'")
+
+SYSTEMCTL_EXEC='/usr/bin/systemctl'
+"$SYSTEMCTL_EXEC" start 'rngd.service'
+"$SYSTEMCTL_EXEC" enable 'rngd.service'
+
+# END fix for 'xccdf_org.ssgproject.content_rule_service_rngd_enabled'
+
+###############################################################################
+# BEGIN fix (2 / 186) for 'xccdf_org.ssgproject.content_rule_package_abrt_removed'
+###############################################################################
+(>&2 echo "Remediating rule 2/186: 'xccdf_org.ssgproject.content_rule_package_abrt_removed'")
+
+# CAUTION: This remediation script will remove abrt
+#          from the system, and may remove any packages
+#          that depend on abrt. Execute this
+#          remediation AFTER testing on a non-production
+#          system!
+
+if rpm -q --quiet "abrt" ; then
+    yum remove -y "abrt"
+fi
+
+# END fix for 'xccdf_org.ssgproject.content_rule_package_abrt_removed'
+...
+-----------------------
+
+If we want to get the playbook for remediate we can execute the following command.
+
+[source, bash]
+-------------------------------
+# oscap xccdf generate fix --fix-type ansible --profile xccdf_org.ssgproject.content_profile_ospp --output remediation-playbook.yml  /usr/share/xml/scap/ssg/content/ssg-rhel8-ds.xml
+-------------------------------
+
+=== Scanning the RHEL infrastructure with OpenSCAP Workbench
+
+SCAP Workbench is a graphical user interface for the SCAP toolset that was designed to provide users with an intuitive GUI for performing scanning and remediation tasks. The SCAP Workbench is a graphical tool and in many environments where Linux servers are running headless without the graphical X environment installed we need to forward X11.
+
+SCAP Workbench is a cross-platform application, with downloads available for Windows, macOS, and most common Linux platforms, therefore, the easiest path for most users will be to run it in their native operating system. If, for consistency, you wish to run SCAP Workbench on Linux, you would either need to set up a remote X11 session or set up a dedicated scanning host that includes the graphical desktop environment.
+
+On RHEL We need to install all packages required by SCAP Workbench to function properly, including the scap-workbench package that provides the utility itself. Note that required dependencies, such as the qt and openssh packages, are automatically updated to the newest available version if the packages are already installed on our system.
+
+SCAP Workbench needs a security content to operate. Red Hat recommends using the SCAP Security Guide (SSG) that we have installed already.
+
+[source, bash]
+-----------------------
+# sudo yum -y install scap-workbench
+-----------------------
+
+We can download an installer for Windows or MAC if you feel more comfortable running this application in your native operating system. No matter where we executes the workbench, we can scan servers remotely.
+
+After the execution of scap-workbench the first thing we have to select are the profiles for the specific operating system of the server we are supposed to scan.
+
+image::loadSecurityGuide.png[]
+
+In case we don't find the operating system or version needed for the server to be scanned, we can download the latest security guide, as described in a previous section, and select other *Other SCAP content*, then load content to select the appropriate file.
+
+We must select a profile for the scanning process. In our example we are going to select the *Standard System Security Profile for Red Hat Enterprise Linux 8*.
+
+image::workbenchChooseProfile.png[]
+
+We can scan all the rules proposed, but also we can customize what best fits our requirements. Select *Customize* to modify what rules are going to be scanned.
+
+image::workbenchCustomize.png[]
+
+We can deselect all rules for selecting just what we need to apply to our server.
+
+image::workbenchSelectRules.png[]
+
+After selecting the rules that apply to our organization we can initiate a *remediation* for the server we need to set in compliance the customized (or full) security guide.
+
+Select the *Remediation* button for executing all the fixes needed for set the server compliance.
+
+The tool, as in command line, executes a scanning first.
+
+image::workbenchRemediationScanning.png[]
+
+Then, select all failed candidates to execute a fix on each rule.
+
+image::workbenchRemediationScanning-2.png[]
+
+After the remediation all the fixes are shown.
+
+Also, we can select the *Report* button to see in a browser the report just created.
+
+image::workbenchReport.png[]
+
+In this report we can also see the details of each rule.
+
+image::workbenchReportDetails.png[]
+
+== Integrating reports to RHEL Insights
+
+We can integrate the reports, resulting from periodic scanning or remediations with Ansible, using the command line.
+
+[source, bash]
+-------------------------
+# insights-client --verbose --payload scan-xccdf-results.xml --content-type application/vnd.redhat.compliance.something+tgz
+
+2020-02-27 08:51:19,124    DEBUG insights.client.client Logging initialized
+2020-02-27 08:51:19,125    DEBUG root Loaded initial egg: /etc/insights-client/rpm.egg/insights
+2020-02-27 08:51:19,126    DEBUG insights.client /usr/bin/gpg --verify --keyring /etc/insights-client/redhattools.pub.gpg /var/lib/insights/newest.egg.asc /var/lib/insights/newest.egg
+2020-02-27 08:51:19,140    DEBUG insights.client GPG return code: 0
+2020-02-27 08:51:20,053    DEBUG insights.client.client Logging initialized
+2020-02-27 08:51:20,053    DEBUG insights.client.auto_config Trying to autoconfigure...
+...
+-------------------------
+
+The xml file to be uploaded is the result of executing the eval or remediation options of oscap with the --results directive. This was described in previous sections.
+
+After this upload procedure we can access the report from the tab *Compliance* accessed from the insights inventory window.
+
+* Access link:https://cloud.redhat.com/insights/inventory/[Insights Inventory]
+
+* Select tab *Compliance*
+
+Image::insights-2.png[]
+
+=== References
+
+* link:https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/pdf/security_hardening/Red_Hat_Enterprise_Linux-8-Security_hardening-en-US.pdf[Red Hat Enterprise Linux 8 Security hardening]
+
+* link:https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/security_guide/index[RHEL Security Guide]
+
+* link:http://static.open-scap.org/openscap-1.3/oscap_user_manual.html#_auditing_system_settings_with_scap_security_guide[openSCAP Manual]
