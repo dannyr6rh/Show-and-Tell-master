@@ -1,0 +1,469 @@
+:scrollbar:
+:data-uri:
+:toc2:
+:imagesdir: images
+
+= RHEL Webconsole - LTO Show & Tell Series
+
+== Description
+This Show&Tell is aimed to share some of the most important concepts and features of webconsole (a.k.a. cockpit) as the main control pane for managing RHEL 7 & RHEL 8.
+
+Audience: IT Managers, Architects and technical staff who operates Linux
+
+:numbered:
+
+== The new challenges of the OS Management
+
+With the proliferation of virtual machines and containers as an operating system standard features in conjunction with all the OS management related activities that a system administrator has to do in his everyday life, sometimes a day could be horrific, not mentioning the error prone activities that repetitive tasks could mean.
+
+The command line has been for decades the norm for administering Linux environments. Nevertheless, the command line could be daunting as far as labor is concerned, but also could lead to errors related to excessive confidence in combination with root privileges.
+
+This reality makes us think about better ways to execute the daily management work. A good practice a lot of system administrators are adopting is to combine command line activities with gui assisted tools to handle the 80/20 pareto of management burden the operating systems demands.
+
+This is where Webconsole comes to this picture.
+
+== What is Webconsole
+
+The Red Hat Enterprise Linux web console is an open source project called Cockpit that provides a user-friendly web interface allowing for the remote administration of servers. Being a web console, this also means that it is equally easy to use on mobile devices as well.
+
+From https://cockpit-project.org[Cockpit Project] we can reference this:
+
+"Discoverable: Cockpit makes GNU/Linux discoverable. See your server in a web browser and perform system tasks with a mouse. It’s easy to start containers, administer storage, configure networks, and inspect logs.
+
+Designed & tested: Cockpit is designed with your goals in mind. We also routinely test Cockpit with usability studies to make it work the way you’d expect. As a result, Cockpit gets easier to use all the time.
+
+Team-friendly: Cockpit is friendly enough for those new to Linux and useful for seasoned admins too.
+
+Packages included: Installing and running Cockpit is simple. It’s already included in most of the major distributions."
+
+== The extensible nature of WebConsole
+
+Another great feature of Cockpit is that it is pluggable, which means functionality can be extended by additional plugins. Red Hat develops several plugins that are official and supported.
+
+cockpit-composer
+cockpit-pcp.x86_64                
+cockpit-session-recording
+cockpit-dashboard
+cockpit-machines
+cockpit-podman
+cockpit-storaged (Installed by default in RHEL 8)
+
+== How to install Webconsole
+
+The installation is as simple as installing the cockpit package and opening the ports needed to access the web application.
+
+For RHEL 7 we must enable some repositories.
+
+[source, bash]
+--------------------------------
+subscription-manager repos --enable=rhel-7-server-extras-rpms
+subscription-manager repos --enable=rhel-7-server-optional-rpms
+--------------------------------
+
+Installing the cockpit package.
+
+[source, bash]
+--------------------------------
+yum install cockpit
+--------------------------------
+
+Open ports and enable the service.
+
+[source, bash]
+--------------------------------
+firewall-cmd --add-port=9090/tcp
+firewall-cmd --add-port=9090/tcp --permanent
+systemctl enable cockpit.socket
+systemctl start cockpit.socket
+--------------------------------
+
+== A naive tour of the web interface
+
+To access the web console we need to type https://ip-address:9090 on a browser (Chrome is good). After entering we need to approve the certificate then the first screen is going to appear for authentication.
+
+image::login.png[]
+
+Accessing the tool with a regular user should be done if that user is not expected to change nothing on the server. If changes are needed to complete actions then root or privileged users should login.
+
+Let's enter with the root user.
+
+The system dashboard is the first screen you can see when accessing for the first time webconconsole. Here some performance metrics are shown, but you can also do some interesting stuff:
+
+* Change the hostname 
+* Join to a domain 
+* Change the time or date or configure the connection to a ntp server
+* Change the the server profile
+* Power off or reboot the server
+
+image::system.png[]
+
+So, in this very first screen you can do a lot of things.
+
+At the left menu there are several options.
+
+* Logs
+
+image::logs.png[Logs]
+
+* Networking 
+
+image::networking.png[Networking]
+
+* Firewall
+
+image::firewall.png[Firewall]
+
+* Accounts
+
+image::accounts.png[Accounts]
+
+* Services
+
+image::services.png[Services]
+
+*  Diagnostic Report
+
+image::sos.png[Diagnostic Report]
+
+* Software updates
+
+image::updates.png[Software Updates]
+
+* Subscriptions
+
+image::subscriptions.png[Subscriptions]
+
+* Terminal 
+
+image::terminal.png[Console]
+
+== How to install a plugin for adding functionality to webconsole
+
+For webconsole to extend its functionality it is needed to install plugins. These plugins on RHEL are easy to find through the bash auto completion feature that can be used when we use the yum command.
+
+[source, bash]
+--------------------------
+yum install cockpit- [tab]
+
+cockpit-composer.noarch           cockpit-doc.noarch                cockpit-pcp.x86_64                cockpit-session-recording.noarch
+cockpit-dashboard.noarch          cockpit-machines.noarch           cockpit-podman.noarch             cockpit-storaged.noarch
+--------------------------
+
+In the next section we will install a plugin for managing more than one server from the web console.
+
+== How to manage several servers from one console
+
+To manage several servers from one console we need to install the cockpit-dashboard plugin.
+
+[source, bash]
+---------------------------
+yum install cockpit-dashboard
+---------------------------
+
+Every plugin we install needs a restart of the cockpit.socket service to be recognized.
+
+[source, bash]
+---------------------------
+systemctl restart cockpit.socket
+---------------------------
+
+After login in again on the browser you will see the left part of the screen divided with two options. The server icon holds the original screen from  webconsole but now with the information of the active server.
+
+The gauge icon is the new functionality added which is the dashboard. The dashboard enables us to add as much as servers are needed.
+
+Clicking the "plus" button we are going to add a server
+
+image::addingServer.png[]
+
+Giving the credentials we can add the server.
+
+image::credentials.png[]
+
+Then, in this example, zeus is added to the list.
+
+image::zeus.png[]
+
+So, selecting now zeus we can go to screen where zeus will be shown to make management actions on.
+
+image::zeusDetails.png[]
+
+== How to record sessions using the session recording plugin
+
+Another nice plugin is for session recordings, which enable us to configure and manage all the sessions recorded on the server.
+
+[source, bash]
+---------------------------
+yum install cockpit-session-recording
+---------------------------
+
+[source, bash]
+---------------------------
+systemctl restart cockpit.socket
+---------------------------
+
+After restarting the cockpit.socket service we will notice a "session recording menu entry at the left of the screen"
+
+image::sessionRecording.png[]
+
+To activate the recording we need to click on the gear icon located at the right-up corner of the screen, then in the sssd configuration section select "All" in the scope dropdown menu, followed by clicking the save button.
+
+image::sessionRecordingConfig.png[]
+
+After this configuration takes effect, all users that login to the server are going to be recorded when a ssh session is opened. Then these sessions could be played-back.
+
+image:sessionRecordingPlay.png[]
+
+== Managing the Networking from Webconsole
+
+=== Creating a Bonding Interface
+
+Select the networking item on the WebConsole left menu. In this example the server is configured with 4 interfaces.
+
+image::4ports.png[]
+
+We are going to use esp0s9 + esp0s10 for creating bond0. Click the "Add Bond" button. configure like suggested on the image and click "Apply".
+
+image::bondSettings.png[]
+
+After applying the changes you will see the list of the configured interfaces which had to change hiding interfaces esp0s9&esp0s10 and showing the newly created bond interface bond0 as depicted in the image.
+
+image::bondingCreated.png[]
+
+We can change the configuration of the bonding interface by selecting it from the list as shown in the following picture.
+
+image::bondingModification.png[]
+
+From the command line we can see the newly created interface bond o using "ip route" command.
+
+image::bondingFromCommandLine.png[]
+
+=== Creating a Teaming Interface
+
+We can also create a teaming interface, much in the same way as a bonding interface as depicted in the following pictures.
+
+*Creating a Teaming interface*
+
+image:teamingSettings.png[]
+
+*team0 Teaming interface listed after creation*
+
+image:teamingCreated.png[]
+
+*Modifying a Teaming interface*
+
+image:teamingModification.png[]
+
+*List Teaming interface from command line*
+
+image:teamingFromCommandLine.png[]
+
+=== creating a Link Layer Bridge
+
+The procedure for creating a bridge is the same as bonding & teaming. The bridge can be configured over a team or a bond interface previously created. This is used typically for helping with the communication among virtual machines and a hypervisor.
+
+image::bridgeTypical.png[]
+
+=== creating a VLAN
+
+Creating a vlan is also very simple using webconsole. 
+
+image::vlan.png[]
+
+=== Managing the Firewall
+
+Managing firewall services and ports are daily tasks that we usually do through firewall-cmd command. Although we are very used to it there are easier ways to interact with the firewall.
+
+In the networking section of webconsole we can click on the firewall link to see the services and ports configured.
+
+image::firewallMain.png[]
+
+After clicking on the firewall link we'll see the following table or ports and services enabled.
+
+image::firewallClicked.png[]
+
+In the firewall screen we can manipulate zones which can be created for each part of the network that require different access/traffic control policies. The most common configuration of these is to have private (inside), public (outside), and DMZ (“demilitarized” or neutral) zones.
+
+Also (and the most common activity with firewall) we can enable services or ports that are needed for the correct functioning of an application. RHEL 8.1 now allow from webconsole enable ports in a custom way.
+
+*Adding preset services*
+
+image::firewallAddService.png[]
+
+*Adding a customized port*
+
+image::firewallAddPort.png[]
+
+After adding a customized port the list of services will be updated.
+
+image::firewallPort9094.png[]
+
+In the main firewall screen we can enable or disable the firewalld as well.
+
+== Managing disks and VDO using the console
+
+The storage plugin is an excellent example of how we can optimize our admin work with a gui interface. For enabling the storage module we need to install the appropriate plugin.
+
+[source, bash]
+---------------------------
+yum install cockpit-storaged
+---------------------------
+
+[source, bash]
+---------------------------
+systemctl restart cockpit.socket
+---------------------------
+
+Re-authenticate on webconsole to have take all the changes. Now at the left you can see the storage item at the menu which we are going to click to access the panel.
+
+image::storageMain.png[]
+
+From the storage panel we can see the configured disks, the usage in terms of writings and readings, but also we can configure raid groups, disk groups and logical volumes, VDO devices, NFS mounts and iscsi targets. A very complete tool for helping to the laboriously tasks of configuring the disk subsystem. 
+
+We are going to create the disk architecture of the left in which we are going to define an optimized disk volume which is going to be mounted on /data.
+
+image::storageArchitecture.png[]
+
+Lest's start!
+
+=== Configuring a RAID device
+
+Configuring the RAID 1 volume is straightforward because we only need to define the name, type of RAID and select the disks. In this case two 16GB disks were presented to  the server.
+
+image::storageRaid1.png[]
+
+=== Configuring a volume group
+
+After the RAID volume is created we are going to create a volume group on top of that and then we are going to create a logical volume with the 50% of the total space.
+
+*Creating the volume group*
+
+image::storageVgroup.png[]
+
+*After creating the VG we select it*
+
+image::storageLVM1.png[]
+
+*Now we create the logical volume with 8GB*
+
+image::storageLV2.png[]
+
+For using VDO we need to install the packages needed. We can do it using webconsole as well.
+
+image::storageVDOInstallSupport.png[]
+
+Configuring a VDO volume on top of the Logical Volume is a very simple task. Click on the "+" button at the VDO section and select the logical volume recently created, then define it as a 32GB volume and 512GB of index memory leaving the rest of parameters by default.
+
+image::storageVDOCreation.png[]
+
+Now we need to format the VDO volume so we are able to mount it. First select the VDO volume then format it with XFS as the picture denotes.
+
+image::storageVDOFormat.png[]
+
+Now we can mount the volume...
+
+image::storageVDOMount.png[]
+
+After the mounting task is done...
+
+image::storageVDOMounted.png[]
+
+From the command line we can see the just mounted vdo volume.
+
+image::storageVDOMountedCommandLine.png[]
+
+And we can see the volume on webconsole.
+
+image::storageVDOWebconsole.png[]
+
+== Managing containers
+
+On RHEL 8.1 and above Red Hat proposes to system administrators a new plugin for managing containers based on padman. This is not a replacement for any other tool for orchestrating containers like Openshift, nevertheless it can achieve several mechanical tasks that any system administrator needs to execute when the container platform is small.
+
+*Installing the plugin*
+
+[source, bash]
+-----------------------------
+yum install cockpit-podman -y
+
+systemctl restart cockpit.socket
+-----------------------------
+
+Then authenticate yourself again in the webconsole gui.
+
+Select "Podman Containers" in the left menu of webconsole.
+
+image::podmanMain.png[]
+
+Let's pull a RHEL 8 ubi for an interesting exercise of creating and running a container with a web chat.
+
+Click on the "Get New Image" link on the right side of the screen. Write "ubi8" on the Download field.
+
+image::podmanPull.png[]
+
+... and click download. After Downloading the image it will appear in the main podman containers screen.
+
+image::podmanUbi8Downloaded.png[]
+
+Now we are going to build a container using the instructions of https://github.com/ltoRhelDemos/Show-and-Tell/tree/master/CONTAINERS#62-container-building[6.2 container building].
+
+[source, bash]
+------------------------------
+mkdir -p ~/engine/chatbotApp webchat/chatbotApp
+git clone https://github.com/ltoRhelDemos/python-ansible-chatbot.git
+
+Cloning into 'python-ansible-chatbot'...
+remote: Enumerating objects: 63, done.
+remote: Counting objects: 100% (63/63), done.
+remote: Compressing objects: 100% (63/63), done.
+remote: Total 179 (delta 27), reused 0 (delta 0), pack-reused 116
+Receiving objects: 100% (179/179), 190.33 KiB | 1.09 MiB/s, done.
+Resolving deltas: 100% (85/85), done.
+
+cp python-ansible-chatbot/* webchat/chatbotApp/.
+cp python-ansible-chatbot/* engine/chatbotApp/.
+------------------------------
+
+Now we are going to create the webchat part only, just to demonstrate how to handle the container created on webconsole.
+
+[source, bash]
+------------------------------
+cd /root/containers/webchat
+vim Dockerfile
+
+*Dockerfile content*
+FROM registry.access.redhat.com/ubi8/ubi
+
+RUN yum update -y
+RUN yum install python36 -y
+
+RUN pip3 install flask
+
+CMD ["mkdir","/root/chatbot"]
+
+COPY /chatbotApp/* /root/chatbot/
+
+WORKDIR /root/chatbot
+
+CMD ["/usr/bin/python3","webChat.py","title=Ansible_Chatter","subtitle=Latam_Techonology_Office","comment=Maintained by adirgan@redhat.com","questionSentence=What_you_need_to_Know?","buttonText=Ask", "botName=Ansible_Expert", "botName=Ansible_Expert"]
+*End of Dockerfile*
+
+podman build -t ansiblewebchat_0.1 .
+------------------------------
+
+After the container if built, let's run it from webconsole.
+
+image::podmanRun.png[]
+
+After running it we can access the service from a browser to http:://serverIP:8080/chat
+
+We can also stop the container selecting it and use the stop dropdown menu to stop or force to stop the container.
+
+image:podmanStop.png[]
+
+Also we can remove images, selecting an image and clicking in the red garbage can.
+
+image::podmanRemove.png[]
+
+== Why is so important to have tools assisting the management
+
+Today's requirements plagued by hundreds of VMs and Containers combined with very dynamic environments impose new challenges that do not scale using only the command line. Command line is very useful when we need to use special procedures or not so often use intricate procedures. Nevertheless, the 80% of our work as administrators is repetitive and error prone. These kinds of tools let them be more secure, with a unique point of contact with the servers in the datacenter.
